@@ -2,7 +2,7 @@
   Servo pan_servo;
   const int anglePer = 1000; //rounds off jitter in the signal higher number more rounding
   const int feedbackPin = 2;
-  unsigned long durationLow, durationHigh, millisLast;
+  unsigned long durationLow, durationHigh, millisLast=0;
   long rotation=0, angle;
   unsigned int dutyCycle,theta;
   int newQuadrant,oldQuadrant;

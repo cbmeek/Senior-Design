@@ -3,15 +3,15 @@
 Servo pan_servo;
 
 const int feedbackPin = 2;
-unsigned long durationLow = 0, durationHigh = 0, millisLast = 0;
+unsigned long millisStart,durationLow = 0, durationHigh = 0, millisLast = 0;
 double rotation = 0, angle;
 unsigned int dutyCycle = 0, theta = 0;
 int newQuadrant = 1, oldQuadrant = 1;
-double targetAngle=720;
+double targetAngle=360;
 double output=1500;
-double Kp=1;
-double Ki=.5;
-double Kd=1;
+double Kp=9*.5;
+double Ki=1.2*9/2;
+double Kd=3*9*2/40;
 
 PID pan_pid(&angle, &output, &targetAngle, Kp, Ki, Kd, DIRECT);
 
@@ -20,14 +20,17 @@ void setup() {
   pinMode(feedbackPin, INPUT);
   pan_pid.SetMode(AUTOMATIC); //automatically start pid
   pan_pid.SetOutputLimits(1200,1700); //PID value bounds
+  pan_pid.SetControllerDirection(REVERSE);
   pan_pid.SetSampleTime(15); //How many milli seconds between pid calculation
   
   Serial.begin(9600);
   while (!Serial) {
   }
+  millisStart=millis();
 }
 
 void loop() {
+
   // Calculate Duty Cycle
   durationLow = pulseIn(feedbackPin, LOW); //Measures the time the feedback signal is low
   durationHigh = pulseIn(feedbackPin, HIGH); //Measures the time the feedback signal is high
@@ -65,21 +68,12 @@ void loop() {
   pan_pid.Compute();
   
   //Print the Data
-  Serial.print("newQuadrant: ");
-  Serial.print(newQuadrant);
-  Serial.print("\t");
-  Serial.print("oldQuadrant: ");
-  Serial.print(oldQuadrant);
-  Serial.print("\t");
-  Serial.print("Theta: ");
-  Serial.print(theta, DEC);
-  Serial.print("\t");
-  Serial.print("Rotation #: ");
-  Serial.print(rotation);
-  Serial.print("\t");
-  Serial.print("Angle: ");
-  Serial.println(angle, DEC);
-
+  Serial.print((millis()-millisStart));
+  Serial.print(",");
+  Serial.print(output);
+  Serial.print(",");
+  Serial.println(angle,DEC);
+ 
 
   if ((millis() - millisLast) >= 20) {
     pan_servo.writeMicroseconds(output);

@@ -11,6 +11,8 @@ TinyGPSCustom lon(gps, "PUBX", 5); // $PUBX sentence, 5th element
 TinyGPSCustom EW(gps, "PUBX", 6); // $PUBX sentence, 6rd element
 TinyGPSCustom ele(gps, "PUBX", 7); // $PUBX sentence,  7th element
 
+#define VBATPIN A7
+
 void SERCOM1_Handler()
 {
   Serial2.IrqHandler();
@@ -25,24 +27,27 @@ void setup()
   // Assign pins 10 & 12 SERCOM functionality
   pinPeripheral(10, PIO_SERCOM);
   pinPeripheral(12, PIO_SERCOM);
+  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  /*if(Serial.available()){
-    Serial2.write(Serial.read());
-  }
-  if(Serial2.available()){
-    Serial1.write(Serial2.read());
-  }
-  */
+  
+  
   if(lat.isUpdated() || lon.isUpdated() || ele.isUpdated()){
     Serial1.print(nmea2DD(lat.value(),NS.value()),9); Serial1.print(" "); 
     Serial1.print(nmea2DD(lon.value(),EW.value()),9); Serial1.print(" ");
-    Serial1.println(ele.value()); 
+    Serial1.print(ele.value()); Serial1.print(" ");
+    Serial1.println(batteryVoltage());
   }
   
   while(Serial2.available()>0) gps.encode(Serial2.read());
+}
+float batteryVoltage(){
+  float measuredvbat = analogRead(VBATPIN);
+  measuredvbat *= 2;    // we divided by 2, so multiply back
+  measuredvbat *= 3.3;  // Multiply by 3.3V, our reference voltage
+  measuredvbat /= 1024; // convert to voltage
+  return measuredvbat;
 }
 
 float nmea2DD(String nmea,String dir){

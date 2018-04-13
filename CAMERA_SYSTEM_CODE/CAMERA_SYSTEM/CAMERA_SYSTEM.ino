@@ -9,11 +9,14 @@
 //Constants
   const int calPin1 = 4;
   const int calPin2 = 5;
+  const int calPin3 = 6;
+  const int calPin4 = 7;
 
   const int panFeedBackPin = 2;
   const int panPin = 8;
 
   const int tiltPin = 9;
+  const int tiltOffset = 10;
   const int zoomPin = 10;
 
 //holds calibration/initialization data
@@ -94,20 +97,34 @@ void setup() {
   targetAngleINCMillis=millis();
   panServoMillis=millis();
   
+  //HMI Pins and LEDS
+  pinMode(calPin1,INPUT);
+  pinMode(calPin2,INPUT);
 }
 
 void loop() {
+  if(digitalRead(calPin1) == HIGH){
+    calibration();
+  }
   
+  else if(digitalRead(calPin4)==HIGH){
+    maintenanceMode();
+  }
+  
+  else {
   //Receieve GPS Transmitter Data
   recvSerialData(Serial1); 
   if(newData == true) {
     parseGPSData();
     updateTranLoc();    
   }
-  
 
+  //Update Target Angles
+  updateTargetPanAngle();
+  
+  
   //Determine Pan Angle
-    getPanAngle();
+  getPanAngle();
   
   //Pan Angle PID
   panPID.Compute();
@@ -136,7 +153,8 @@ void loop() {
     targetPanAngle += 10;
     targetAngleINCMillis = millis();
   }*/
-}
+  }//else
+}//loop
 
 void recvSerialData(Stream &ser) {
     static boolean recvInProgress = false;
@@ -192,6 +210,12 @@ void updateTranLoc(){
   lonRaw = gpsLon;
   eleRaw = gpsEle;  
 }
+
+void updateTargetPanAngle(){
+  //
+}
+
+
 
 void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
@@ -271,3 +295,9 @@ void calibration()
     ele1 = ele0; 
    } 
 }
+
+void maintenanceMode(){
+  panServo.writeMicroseconds(1500);
+  tiltServo.write(175);  
+}
+

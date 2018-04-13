@@ -39,7 +39,7 @@
 //Pan Control data
   const double outputMax = 1620;
   const double outputMin = 1360;
-  const int timeStep=20;   
+  const int timeStep=40;   
   double targetPanAngle=105;
   double outputPanServo=1500;
   double Kp=16;
@@ -99,16 +99,10 @@ void setup() {
 void loop() {
   
   //Receieve GPS Transmitter Data
-  recvSerialData(Serial1);
+  recvSerialData(Serial1); 
   if(newData == true) {
     parseGPSData();
-    updateTranLoc();
-    
-    Serial.print("GPS Data: ");
-    Serial.print(latRaw);Serial.print(" "); 
-    Serial.print(lonRaw);Serial.print(" ");  
-    Serial.print(eleRaw);Serial.print(" ");
-    Serial.println(gpsVoltage);    
+    updateTranLoc();    
   }
   
 
@@ -177,19 +171,19 @@ void recvSerialData(Stream &ser) {
 }
 
 void parseGPSData() {      // split the data into its parts
-
+    
     char * strtokIndx; // this is used by strtok() as an index
-
-    strtokIndx = strtok(tempChars," ");      // get the first part - the string
+    strcpy(tempChars, receivedChars);
+    strtokIndx = strtok(tempChars,",");      // get the first part - the string
     gpsLat = atof(strtokIndx); // convert this part to a float
  
-    strtokIndx = strtok(NULL, " "); // this continues where the previous call left off
+    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
     gpsLon = atof(strtokIndx);     // convert this part to a float
 
-    strtokIndx = strtok(NULL, " ");
+    strtokIndx = strtok(NULL, ",");
     gpsEle = atof(strtokIndx);     // convert this part to a float
     
-    strtokIndx = strtok(NULL, " ");
+    strtokIndx = strtok(NULL, ",");
     gpsVoltage = atof(strtokIndx);     // convert this part to a float
 }
 

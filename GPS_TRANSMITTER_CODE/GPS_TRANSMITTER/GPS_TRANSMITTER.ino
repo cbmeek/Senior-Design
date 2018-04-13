@@ -34,10 +34,12 @@ void loop() {
   
   
   if(lat.isUpdated() || lon.isUpdated() || ele.isUpdated()){
+    Serial1.print("<"); //Start char for parsing
     Serial1.print(nmea2DD(lat.value(),NS.value()),9); Serial1.print(" "); 
     Serial1.print(nmea2DD(lon.value(),EW.value()),9); Serial1.print(" ");
     Serial1.print(ele.value()); Serial1.print(" ");
-    Serial1.println(batteryVoltage());
+    Serial1.print(batteryVoltage());
+    Serial1.println(">"); //End char for parsing
   }
   
   while(Serial2.available()>0) gps.encode(Serial2.read());

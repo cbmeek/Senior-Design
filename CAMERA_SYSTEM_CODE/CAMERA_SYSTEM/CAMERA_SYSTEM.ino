@@ -103,6 +103,12 @@ void loop() {
   if(newData == true) {
     parseGPSData();
     updateTranLoc();
+    
+    Serial.print("GPS Data: ");
+    Serial.print(latRaw);Serial.print(" "); 
+    Serial.print(lonRaw);Serial.print(" ");  
+    Serial.print(eleRaw);Serial.print(" ");
+    Serial.println(gpsVoltage);    
   }
   
 
@@ -117,10 +123,8 @@ void loop() {
   }
 
   //Servo Control
-  if((millis()-panServoMillis) >= 20) {
-    panServo.writeMicroseconds((int)outputPanServo);
-    panServoMillis = millis();
-  }
+  panServo.writeMicroseconds((int)outputPanServo);
+
   
   //Display
   /*

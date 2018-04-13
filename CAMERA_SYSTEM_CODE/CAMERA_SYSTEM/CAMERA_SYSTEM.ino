@@ -1,18 +1,20 @@
 /* Camera System Control 
  *  
+ *Credit to: 
+ *Robin2 - "Serial Input Basics updated" available: http://forum.arduino.cc/index.php?topic=396450
  */
 #include <Servo.h>
 #include <PID_v1.h>
 
 //Constants
-const int calPin1 = 4;
-const int calPin2 = 5;
+  const int calPin1 = 4;
+  const int calPin2 = 5;
 
-const int panFeedBackPin = 2;
-const int panPin = 8;
+  const int panFeedBackPin = 2;
+  const int panPin = 8;
 
-const int tiltPin = 9;
-const int zoomPin = 10;
+  const int tiltPin = 9;
+  const int zoomPin = 10;
 
 //holds calibration/initialization data
   float lat0;
@@ -38,7 +40,7 @@ const int zoomPin = 10;
   const double outputMax = 1620;
   const double outputMin = 1360;
   const int timeStep=20;   
-  double targetPanAngle=0;
+  double targetPanAngle=105;
   double outputPanServo=1500;
   double Kp=16;
   double Ki=1.5;
@@ -46,6 +48,16 @@ const int zoomPin = 10;
 
 //Time
   unsigned long millisStart,panMillis,panServoMillis,targetAngleINCMillis;  
+
+//Serial parsing
+  const byte stringSize = 64;
+  char receivedChars[stringSize];
+  char tempChars[stringSize];
+  float gpsLat=0.0; 
+  float gpsLon=0.0;
+  float gpsEle=0.0;
+  float gpsVoltage=0.0;
+  boolean newData = false;
   
 //Instatiate Objects  
 Servo panServo;
@@ -81,15 +93,27 @@ void setup() {
   panMillis=millis();
   targetAngleINCMillis=millis();
   panServoMillis=millis();
+  
 }
 
 void loop() {
+  
+  //Receieve GPS Transmitter Data
+  recvSerialData(Serial1);
+  if(newData == true) {
+    parseGPSData();
+    updateTranLoc();
+    
+    Serial.print("GPS Data: ");
+    Serial.print(latRaw);Serial.print(" "); 
+    Serial.print(lonRaw);Serial.print(" ");  
+    Serial.print(eleRaw);Serial.print(" ");
+    Serial.println(gpsVoltage);    
+  }
+  
 
   //Determine Pan Angle
-  if((millis()-panMillis) >= 20){
     getPanAngle();
-    panMillis = millis();
-  }
   
   //Pan Angle PID
   panPID.Compute();
@@ -97,10 +121,10 @@ void loop() {
   {
     outputPanServo=1500;
   }
-  if((millis()-panServoMillis) >= 20) {
-    panServo.writeMicroseconds((int)outputPanServo);
-    panServoMillis = millis();
-  }
+
+  //Servo Control
+  panServo.writeMicroseconds((int)outputPanServo);
+
   
   //Display
   /*
@@ -120,9 +144,62 @@ void loop() {
   }*/
 }
 
+void recvSerialData(Stream &ser) {
+    static boolean recvInProgress = false;
+    static byte ndx = 0;
+    char startMarker = '<';
+    char endMarker = '>';
+    char rc;
 
-void getPanAngle()
-{ 
+    while (ser.available() > 0 && newData == false) {
+        rc = ser.read();
+
+        if (recvInProgress == true) {
+            if (rc != endMarker) {
+                receivedChars[ndx] = rc;
+                ndx++;
+                if (ndx >= stringSize) {
+                    ndx = stringSize - 1;
+                }
+            }
+            else {
+                receivedChars[ndx] = '\0'; // terminate the string
+                recvInProgress = false;
+                ndx = 0;
+                newData = true;
+            }
+        }
+
+        else if (rc == startMarker) {
+            recvInProgress = true;
+        }
+    }
+}
+
+void parseGPSData() {      // split the data into its parts
+
+    char * strtokIndx; // this is used by strtok() as an index
+
+    strtokIndx = strtok(tempChars," ");      // get the first part - the string
+    gpsLat = atof(strtokIndx); // convert this part to a float
+ 
+    strtokIndx = strtok(NULL, " "); // this continues where the previous call left off
+    gpsLon = atof(strtokIndx);     // convert this part to a float
+
+    strtokIndx = strtok(NULL, " ");
+    gpsEle = atof(strtokIndx);     // convert this part to a float
+    
+    strtokIndx = strtok(NULL, " ");
+    gpsVoltage = atof(strtokIndx);     // convert this part to a float
+}
+
+void updateTranLoc(){
+  latRaw = gpsLat;
+  lonRaw = gpsLon;
+  eleRaw = gpsEle;  
+}
+
+void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
   durationHigh = pulseIn(panFeedBackPin, HIGH); //Measures the time the feedback signal is high
   dutyCycle = (10000*durationHigh)/(durationHigh+durationLow); //calculates the duty cycle

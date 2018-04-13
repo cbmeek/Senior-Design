@@ -39,7 +39,8 @@ void loop() {
     Serial1.print(nmea2DD(lon.value(),EW.value()),9); Serial1.print(" ");
     Serial1.print(ele.value()); Serial1.print(" ");
     Serial1.print(batteryVoltage());
-    Serial1.println(">"); //End char for parsing }
+    Serial1.println(">"); //End char for parsing
+  }
   
   while(Serial2.available()>0) gps.encode(Serial2.read());
 }

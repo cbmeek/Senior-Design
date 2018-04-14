@@ -285,11 +285,13 @@ void updateTargetPanAngle(){
   targetPanAngle = panAngle + radToDeg*arcCos(vect);  
 }
 
+
 void maintenanceMode(){
   panServo.writeMicroseconds(1500);
   tiltServo.write(175);  
 }
 
+//Series Solution for the trig solutions below by Abhilash Patel. Available: http://www.instructables.com/id/Arduino-Trigonometric-Inverse-Functions/
 float arcSin(float c){
   float out;
   out= ((c+(c*c*c)/6+(3*c*c*c*c*c)/40+(5*c*c*c*c*c*c*c)/112+
@@ -302,19 +304,19 @@ float arcSin(float c){
   if(c>=.97 && c<.98){out=(1.325+4.5*(c-.97));}          // arcsin
   if(c>=.98 && c<.99){out=(1.37+6*(c-.98));}
   if(c>=.99 && c<=1){out=(1.43+14*(c-.99));}  
-  return out;
+  return out;// in radians
 }
 
 float arcCos(float c){
   float out;
   out=arcSin(sqrt(1-c*c));
-  return out;
+  return out; // in radians
 }
 
 float arcTan(float c){
   float out;
   out=arcSin(c/(sqrt(1+c*c)));
-  return out;
+  return out; // in radians
 }
 
 

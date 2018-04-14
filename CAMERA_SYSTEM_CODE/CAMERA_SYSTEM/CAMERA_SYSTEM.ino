@@ -7,6 +7,8 @@
 #include <PID_v1.h>
 
 //Constants
+  const float degToRad = 3.14159265359/180;
+  const float radToDeg = 1/degToRad;
   const int calPin1 = 4;
   const int calPin2 = 5;
   const int calPin3 = 6;
@@ -23,13 +25,13 @@
   float lat0;
   float lon0;
   int ele0;
+  double lonCorrection;
   
 //holds GPS transmistter data
-  float lat1;
-  float lon1;
-  int ele1;
-  float latRaw, lonRaw;
-  int eleRaw;
+  float dLat,dLatOld;
+  float dLon, dLonOld;
+  float dEle, dEleOld;
+  float distance,distanceOld;
   
 //holds Pan angle data
   int newQuadrant = 1, oldQuadrant = 1;
@@ -103,33 +105,26 @@ void setup() {
 }
 
 void loop() {
-  if(digitalRead(calPin1) == HIGH){
-    calibration();
-  }
   
-  else if(digitalRead(calPin4)==HIGH){
-    maintenanceMode();
-  }
-  
+  if(digitalRead(calPin1) == HIGH) calibration();
+  else if(digitalRead(calPin4)==HIGH) maintenanceMode(); 
   else {
-  //Receieve GPS Transmitter Data
-  recvSerialData(Serial1); 
-  if(newData == true) {
-    parseGPSData();
-    updateTranLoc();    
-  }
-
-  //Update Target Angles
-  updateTargetPanAngle();
+    //Receieve GPS Transmitter Data
+    recvSerialData(Serial1); 
+    if(newData == true) {
+      parseGPSData();
+      updateTranLoc();    
+    }
+    
+    //Update Target Angles
+    updateTargetPanAngle();
   
+   //Determine Pan Angle
+   getPanAngle();
   
-  //Determine Pan Angle
-  getPanAngle();
-  
-  //Pan Angle PID
-  panPID.Compute();
-  if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1))
-  {
+   //Pan Angle PID
+   panPID.Compute();
+   if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) {
     outputPanServo=1500;
   }
 
@@ -153,6 +148,7 @@ void loop() {
     targetPanAngle += 10;
     targetAngleINCMillis = millis();
   }*/
+  
   }//else
 }//loop
 
@@ -188,8 +184,7 @@ void recvSerialData(Stream &ser) {
     }
 }
 
-void parseGPSData() {      // split the data into its parts
-    
+void parseGPSData() {      // split the data into its parts   
     char * strtokIndx; // this is used by strtok() as an index
     strcpy(tempChars, receivedChars);
     strtokIndx = strtok(tempChars,",");      // get the first part - the string
@@ -204,18 +199,6 @@ void parseGPSData() {      // split the data into its parts
     strtokIndx = strtok(NULL, ",");
     gpsVoltage = atof(strtokIndx);     // convert this part to a float
 }
-
-void updateTranLoc(){
-  latRaw = gpsLat;
-  lonRaw = gpsLon;
-  eleRaw = gpsEle;  
-}
-
-void updateTargetPanAngle(){
-  //
-}
-
-
 
 void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
@@ -254,50 +237,84 @@ void getPanAngle(){
   doublePanAngle = (double)panAngle; //cast the pan angle to double for pid
  /*
  //Print the Data 
-  Serial1.print("newQuadrant: ");
-  Serial1.print(newQuadrant);
-  Serial1.print("\t");
-  Serial1.print("oldQuadrant: ");
-  Serial1.print(oldQuadrant);
-  Serial1.print("\t");
-  Serial1.print("Theta: ");  
-  Serial1.print(theta,DEC);
-  Serial1.print("\t");
-  Serial1.print("Rotation #: ");
-  Serial1.print(rotation);
-  Serial1.print("\t");
-  Serial1.print("panAngle: ");
-  Serial1.println(panAngle,DEC);
+  Serial1.print("newQuadrant: ");  Serial1.print(newQuadrant);  Serial1.print("\t");
+  Serial1.print("oldQuadrant: ");  Serial1.print(oldQuadrant);  Serial1.print("\t");
+  Serial1.print("Theta: ");  Serial1.print(theta,DEC);  Serial1.print("\t");
+  Serial1.print("Rotation #: ");  Serial1.print(rotation);  Serial1.print("\t");
+  Serial1.print("panAngle: ");  Serial1.println(panAngle,DEC);
  */ 
 }
 
 //Calibrate camera system
-//void calibration(float latRaw, float lonRaw, float eleRaw, float &lat0, float &lon0, float &ele0, Servo &tiltServo)
-void calibration()
-{   
+void calibration(){   
   tiltServo.writeMicroseconds(1500);
-  //Code to tell pan angle servo to Home
-  
+  recvSerialData(Serial1); 
+  if(newData == true) {
+    parseGPSData();    
    //SET THE LONGITUDE,LATITUDE, AND ELEVATION OF THE CAMERA SYSTEM
-   if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == HIGH){
-    lat0 = latRaw;
-    lon0 = lonRaw;
-    ele0 = eleRaw;
+   if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == HIGH){   
+    lat0 = gpsLat;
+    lon0 = gpsLon;
+    ele0 = gpsEle;
+    lonCorrection = cos(degToRad*lat0); //correction for longitude values using loca, flat earth approx.
    }
-   
    //SET TRIPOD TO ALIGN WITH GPS TRANSMITTER AND CALCULATE INITIAL POSITION VECTOR
+   //When aligning camera lens ensure GPS transmistter is centered about Y axis
    else if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == LOW){
-    lat1 = latRaw;
-    lon1 = lonRaw;
-    
-    //Do not want to adjust camera tilt away from level. 
-    //When aligning camera lens ensure GPS transmistter is centered about Y axis
-    ele1 = ele0; 
-   } 
+    recvSerialData(Serial1);
+    parseGPSData();
+    updateTranLoc();  
+   }
+  }
+}
+
+void updateTranLoc(){
+  dLatOld = dLat;
+  dLonOld = dLon;
+  dEleOld = dEle;
+  distanceOld = distance;
+  dLat = gpsLat-lat0;
+  dLon = gpsLon- lon0;
+  dLon = lonCorrection*dLon;
+  dEle= gpsEle-ele0;
+  distance = sqrt(dLat*dLat +dLon*dLon)*111009; //gives distance in meters
+}
+
+void updateTargetPanAngle(){
+  float  vect=(dLat*dLatOld+dLon*dLonOld)/(distanceOld*distance);
+  targetPanAngle = panAngle + radToDeg*arcCos(vect);  
 }
 
 void maintenanceMode(){
   panServo.writeMicroseconds(1500);
   tiltServo.write(175);  
 }
+
+float arcSin(float c){
+  float out;
+  out= ((c+(c*c*c)/6+(3*c*c*c*c*c)/40+(5*c*c*c*c*c*c*c)/112+
+  (35*c*c*c*c*c*c*c*c*c)/1152 +(c*c*c*c*c*c*c*c*c*c*c*0.022)+
+  (c*c*c*c*c*c*c*c*c*c*c*c*c*.0173)+(c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*.0139)+
+  (c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*0.0115)+(c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*0.01)
+   ));
+                                           //asin
+  if(c>=.96 && c<.97){out=1.287+(3.82*(c-.96)); }
+  if(c>=.97 && c<.98){out=(1.325+4.5*(c-.97));}          // arcsin
+  if(c>=.98 && c<.99){out=(1.37+6*(c-.98));}
+  if(c>=.99 && c<=1){out=(1.43+14*(c-.99));}  
+  return out;
+}
+
+float arcCos(float c){
+  float out;
+  out=arcSin(sqrt(1-c*c));
+  return out;
+}
+
+float arcTan(float c){
+  float out;
+  out=arcSin(c/(sqrt(1+c*c)));
+  return out;
+}
+
 

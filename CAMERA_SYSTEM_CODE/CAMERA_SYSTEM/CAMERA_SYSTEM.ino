@@ -78,10 +78,12 @@ void setup() {
   
   //Tilt Servo Setup
   tiltServo.attach(tiltPin);
+  tiltServo.writeMicroseconds(1500+tiltOffset);
   
   //Zoom Servo Setup
   zoomServo.attach(zoomPin);
-  
+  zoomServo.writeMicroseconds(1500);
+     
   //Comunication Setup
   Serial.begin(9600);   //USB serial port
   Serial1.begin(19200); //HC12 wireless transceiver
@@ -102,6 +104,7 @@ void setup() {
   //HMI Pins and LEDS
   pinMode(calPin1,INPUT);
   pinMode(calPin2,INPUT);
+  
 }
 
 void loop() {
@@ -228,10 +231,10 @@ void getPanAngle(){
   }
   if(oldQuadrant==1 && newQuadrant==4){ 
     rotation = rotation - 1; 
-    }
+  }
   else if( oldQuadrant==4 && newQuadrant==1){
     rotation = rotation + 1;
-    }
+  }
     
   panAngle = 360*rotation + theta;
   doublePanAngle = (double)panAngle; //cast the pan angle to double for pid
@@ -247,7 +250,7 @@ void getPanAngle(){
 
 //Calibrate camera system
 void calibration(){   
-  tiltServo.writeMicroseconds(1500);
+  tiltServo.writeMicroseconds(1500+tiltOffset);
   recvSerialData(Serial1); 
   if(newData == true) {
     parseGPSData();    
@@ -284,7 +287,6 @@ void updateTargetPanAngle(){
   float  vect=(dLat*dLatOld+dLon*dLonOld)/(distanceOld*distance);
   targetPanAngle = panAngle + radToDeg*arcCos(vect);  
 }
-
 
 void maintenanceMode(){
   panServo.writeMicroseconds(1500);

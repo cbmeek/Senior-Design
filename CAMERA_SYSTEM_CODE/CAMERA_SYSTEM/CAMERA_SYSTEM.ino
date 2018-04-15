@@ -18,24 +18,25 @@
   const int panPin = 8;
 
   const int tiltPin = 9;
-  const int tiltOffset = 10;
+  const int tiltOffset = 70;
   const int zoomPin = 10;
 
 //holds calibration/initialization data
-  float lat0;
-  float lon0;
-  int ele0;
-  double lonCorrection;
+  float lat0=0.0;
+  float lon0=0.0;
+  float ele0=0.0;
+  double lonCorrection=0.0;
   
 //holds GPS transmistter data
-  float dLat,dLatOld;
-  float dLon, dLonOld;
-  float dEle, dEleOld;
-  float distance,distanceOld;
+  float dLat=0.0,dLatOld=0.0;
+  float dLon=0.0, dLonOld=0.0;
+  float dEle=0.0, dEleOld=0.0;
+  float distance=0.0,distanceOld=0.0;
   
 //holds Pan angle data
+  const int panWeight = 80;
   int newQuadrant = 1, oldQuadrant = 1;
-  long panAngle=0;
+  long panAngle=0, panAngleOld=0;
   double doublePanAngle=0;
   unsigned long durationLow = 0, durationHigh = 0;
   long rotation = 0;
@@ -44,7 +45,7 @@
 //Pan Control data
   const double outputMax = 1620;
   const double outputMin = 1360;
-  const int timeStep=40;   
+  const int timeStep=100;   
   double targetPanAngle=105;
   double outputPanServo=1500;
   double Kp=16;
@@ -82,7 +83,7 @@ void setup() {
   
   //Zoom Servo Setup
   zoomServo.attach(zoomPin);
-  zoomServo.writeMicroseconds(1500);
+ 
      
   //Comunication Setup
   Serial.begin(9600);   //USB serial port
@@ -108,51 +109,52 @@ void setup() {
 }
 
 void loop() {
-  
   if(digitalRead(calPin1) == HIGH) calibration();
   else if(digitalRead(calPin4)==HIGH) maintenanceMode(); 
-  else {
+  else if(digitalRead(calPin3)==HIGH){
     //Receieve GPS Transmitter Data
     recvSerialData(Serial1); 
     if(newData == true) {
       parseGPSData();
-      updateTranLoc();    
+      updateTranLoc();
+          
     }
-    
+      
+    //Determine Pan Angle
+    getPanAngle();
+
     //Update Target Angles
-    updateTargetPanAngle();
+    if((newData == true) && (panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1 )){
+      updateTargetPanAngle();
+    }
   
-   //Determine Pan Angle
-   getPanAngle();
-  
-   //Pan Angle PID
-   panPID.Compute();
-   if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) {
-    outputPanServo=1500;
-  }
+    //Pan Angle PID
+    panPID.Compute();
+    if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) {
+     outputPanServo=1500;
+    }
 
-  //Servo Control
-  panServo.writeMicroseconds((int)outputPanServo);
-
+    //Servo Control
+    //panServo.writeMicroseconds((int)outputPanServo);
   
-  //Display
-  /*
-  Serial1.print(millis()-millisStart);
-  Serial1.print(" ");
-  Serial1.print(targetPanAngle);
-  Serial1.print(" ");
-  Serial1.print(panAngle);
-  Serial1.print(" ");
-  Serial1.println((int)outputPanServo,DEC);
+  
+    //Display
+    Serial.print(millis()-millisStart);  Serial.print(" ");
+    Serial.print("targetPanAngle: "); Serial.print(targetPanAngle);  Serial.print(" ");
+    Serial.print("panAngle: "); Serial.print(panAngle);  Serial.print(" ");
+    Serial.print("panServoOutput: "); Serial.println(outputPanServo);
+  
+   //PID TESTING
+  /* if((millis()-targetAngleINCMillis) >= 1000){
+     targetPanAngle += 10;
+     targetAngleINCMillis = millis();
+     }
   */
- //PID TESTING
- /* if((millis()-targetAngleINCMillis) >= 1000)
-    {
-    targetPanAngle += 10;
-    targetAngleINCMillis = millis();
-  }*/
-  
-  }//else
+  newData = false;
+  }//else if
+  else{
+    panServo.writeMicroseconds(1500);
+  }
 }//loop
 
 void recvSerialData(Stream &ser) {
@@ -187,22 +189,6 @@ void recvSerialData(Stream &ser) {
     }
 }
 
-void parseGPSData() {      // split the data into its parts   
-    char * strtokIndx; // this is used by strtok() as an index
-    strcpy(tempChars, receivedChars);
-    strtokIndx = strtok(tempChars,",");      // get the first part - the string
-    gpsLat = atof(strtokIndx); // convert this part to a float
- 
-    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
-    gpsLon = atof(strtokIndx);     // convert this part to a float
-
-    strtokIndx = strtok(NULL, ",");
-    gpsEle = atof(strtokIndx);     // convert this part to a float
-    
-    strtokIndx = strtok(NULL, ",");
-    gpsVoltage = atof(strtokIndx);     // convert this part to a float
-}
-
 void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
   durationHigh = pulseIn(panFeedBackPin, HIGH); //Measures the time the feedback signal is high
@@ -235,8 +221,8 @@ void getPanAngle(){
   else if( oldQuadrant==4 && newQuadrant==1){
     rotation = rotation + 1;
   }
-    
-  panAngle = 360*rotation + theta;
+  panAngleOld = panAngle;   
+  panAngle = (panWeight*panAngleOld + (100-panWeight)*(360*rotation + theta))/100;
   doublePanAngle = (double)panAngle; //cast the pan angle to double for pid
  /*
  //Print the Data 
@@ -253,22 +239,51 @@ void calibration(){
   tiltServo.writeMicroseconds(1500+tiltOffset);
   recvSerialData(Serial1); 
   if(newData == true) {
-    parseGPSData();    
+     parseGPSData();    
+    
    //SET THE LONGITUDE,LATITUDE, AND ELEVATION OF THE CAMERA SYSTEM
    if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == HIGH){   
     lat0 = gpsLat;
-    lon0 = gpsLon;
     ele0 = gpsEle;
+    lon0 = gpsLon;
     lonCorrection = cos(degToRad*lat0); //correction for longitude values using loca, flat earth approx.
+   
+    Serial.print(millis()-millisStart); Serial.print("\t");
+    Serial.print("lat0: ");  Serial.print(lat0,9);  Serial.print("\t");
+    Serial.print("lon0: ");  Serial.print(lon0,9);  Serial.print("\t");
+    Serial.print("ele0: ");  Serial.println(ele0,3);
+    
    }
    //SET TRIPOD TO ALIGN WITH GPS TRANSMITTER AND CALCULATE INITIAL POSITION VECTOR
    //When aligning camera lens ensure GPS transmistter is centered about Y axis
    else if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == LOW){
-    recvSerialData(Serial1);
-    parseGPSData();
-    updateTranLoc();  
+    updateTranLoc();
+    
+    Serial.print(millis()-millisStart); Serial.print("\t");
+    Serial.print("dlat: ");  Serial.print(dLat,9);  Serial.print("\t");
+    Serial.print("dlon: ");  Serial.print(dLon,9);  Serial.print("\t");
+    Serial.print("distance: ");  Serial.print(distance,6);  Serial.print("\t");
+    Serial.print("dele: ");  Serial.println(dEle,3);
+      
    }
+   newData = false;
   }
+}
+
+void parseGPSData() {      // split the data into its parts   
+    char * strtokIndx; // this is used by strtok() as an index
+    strcpy(tempChars, receivedChars);
+    strtokIndx = strtok(tempChars,",");      // get the first part - the string
+    gpsLat = atof(strtokIndx); // convert this part to a float
+  
+    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
+    gpsLon = atof(strtokIndx);     // convert this part to a float
+
+    strtokIndx = strtok(NULL, ",");
+    gpsEle = atof(strtokIndx);     // convert this part to a float
+    
+    strtokIndx = strtok(NULL, ",");
+    gpsVoltage = atof(strtokIndx);     // convert this part to a float
 }
 
 void updateTranLoc(){

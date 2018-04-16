@@ -28,10 +28,10 @@
   double lonCorrection=0.0;
   
 //holds GPS transmistter data
-  float dLat=0.0,dLatOld=0.0;
-  float dLon=0.0, dLonOld=0.0;
-  float dEle=0.0, dEleOld=0.0;
-  float distance=0.0,distanceOld=0.0;
+  float dLat=1.0,dLatOld=1.0;
+  float dLon=1.0, dLonOld=1.0;
+  float dEle=1.0, dEleOld=1.0;
+  float distance=1.0,distanceOld=1.0;
   
 //holds Pan angle data
   const int panWeight = 80;
@@ -45,7 +45,7 @@
 //Pan Control data
   const double outputMax = 1620;
   const double outputMin = 1360;
-  const int timeStep=100;   
+  const int timeStep=80;   
   double targetPanAngle=105;
   double outputPanServo=1500;
   double Kp=16;
@@ -65,13 +65,16 @@
   float gpsVoltage=0.0;
   boolean newData = false;
   
+
 //Instatiate Objects  
 Servo panServo;
 Servo tiltServo;
 Servo zoomServo;
 
 PID panPID(&doublePanAngle, &outputPanServo, &targetPanAngle, Kp, Ki, Kd, REVERSE);
-  
+
+boolean trigger = true; //used to trigger the target angle loop at least once 
+ 
 void setup() {
   //Pan Servo Setup
   panServo.attach(panPin);
@@ -105,7 +108,6 @@ void setup() {
   //HMI Pins and LEDS
   pinMode(calPin1,INPUT);
   pinMode(calPin2,INPUT);
-  
 }
 
 void loop() {
@@ -115,24 +117,31 @@ void loop() {
     //Receieve GPS Transmitter Data
     recvSerialData(Serial1); 
     if(newData == true) {
-      parseGPSData();
-      updateTranLoc();
-          
+      parseGPSData();          
     }
       
     //Determine Pan Angle
     getPanAngle();
 
-    //Update Target Angles
-    if((newData == true) && (panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1 )){
-      updateTargetPanAngle();
-    }
-  
     //Pan Angle PID
-    panPID.Compute();
-    if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) {
-     outputPanServo=1500;
-    }
+    //panPID.Compute();
+    
+    //Update Target Angles
+    while((panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1) || trigger==true) {
+      updateTranLoc();
+      updateTargetPanAngle();
+      trigger = false;
+      
+      if((panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1 )){
+       outputPanServo=1500;
+       dLatOld = dLat;
+       dLonOld = dLon;
+       dEleOld = dEle;
+       distanceOld = distance;
+      }
+    } while((panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1));
+        
+
 
     //Servo Control
     //panServo.writeMicroseconds((int)outputPanServo);
@@ -142,7 +151,7 @@ void loop() {
     Serial.print(millis()-millisStart);  Serial.print(" ");
     Serial.print("targetPanAngle: "); Serial.print(targetPanAngle);  Serial.print(" ");
     Serial.print("panAngle: "); Serial.print(panAngle);  Serial.print(" ");
-    Serial.print("panServoOutput: "); Serial.println(outputPanServo);
+    Serial.print("outputPanServo: "); Serial.println(outputPanServo,DEC);
   
    //PID TESTING
   /* if((millis()-targetAngleINCMillis) >= 1000){
@@ -150,7 +159,7 @@ void loop() {
      targetAngleINCMillis = millis();
      }
   */
-  newData = false;
+  
   }//else if
   else{
     panServo.writeMicroseconds(1500);
@@ -240,7 +249,8 @@ void calibration(){
   recvSerialData(Serial1); 
   if(newData == true) {
      parseGPSData();    
-    
+     trigger = true; //trigger the angle update loop on return to normal operation
+      
    //SET THE LONGITUDE,LATITUDE, AND ELEVATION OF THE CAMERA SYSTEM
    if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == HIGH){   
     lat0 = gpsLat;
@@ -257,8 +267,7 @@ void calibration(){
    //SET TRIPOD TO ALIGN WITH GPS TRANSMITTER AND CALCULATE INITIAL POSITION VECTOR
    //When aligning camera lens ensure GPS transmistter is centered about Y axis
    else if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == LOW){
-    updateTranLoc();
-    
+    updateTranLoc();    
     Serial.print(millis()-millisStart); Serial.print("\t");
     Serial.print("dlat: ");  Serial.print(dLat,9);  Serial.print("\t");
     Serial.print("dlon: ");  Serial.print(dLon,9);  Serial.print("\t");
@@ -266,7 +275,6 @@ void calibration(){
     Serial.print("dele: ");  Serial.println(dEle,3);
       
    }
-   newData = false;
   }
 }
 
@@ -284,13 +292,11 @@ void parseGPSData() {      // split the data into its parts
     
     strtokIndx = strtok(NULL, ",");
     gpsVoltage = atof(strtokIndx);     // convert this part to a float
+    
+    newData = false;
 }
 
 void updateTranLoc(){
-  dLatOld = dLat;
-  dLonOld = dLon;
-  dEleOld = dEle;
-  distanceOld = distance;
   dLat = gpsLat-lat0;
   dLon = gpsLon- lon0;
   dLon = lonCorrection*dLon;
@@ -299,7 +305,7 @@ void updateTranLoc(){
 }
 
 void updateTargetPanAngle(){
-  float  vect=(dLat*dLatOld+dLon*dLonOld)/(distanceOld*distance);
+  double  vect=(dLat*dLatOld+dLon*dLonOld)/(distanceOld*distance);
   targetPanAngle = panAngle + radToDeg*arcCos(vect);  
 }
 

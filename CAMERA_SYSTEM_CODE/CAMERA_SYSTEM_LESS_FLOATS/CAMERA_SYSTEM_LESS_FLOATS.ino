@@ -23,16 +23,16 @@
   const int zoomPin = 10;
 
 //holds calibration/initialization data
-  float lat0=0.0;
-  float lon0=0.0;
-  float ele0=0.0;
-  double lonCorrection=0.0;
+  long lat0=0.0;
+  long lon0=0.0;
+  long ele0=0.0;
+  float lonCorrection=0.0;
   
 //holds GPS transmistter data
-  float dLat=0.0,dLatOld=0.0;
-  float dLon=0.0, dLonOld=0.0;
-  float dEle=0.0, dEleOld=0.0;
-  float distance=0.0,distanceOld=0.0;
+  long dLat=0,dLatOld=0;
+  float dLon=0, dLonOld=0;
+  long dEle=0, dEleOld=0;
+  long distance=0,distanceOld=0;
   
 //holds Pan angle data
   const int panWeight = 80;
@@ -53,6 +53,9 @@
   double Ki=1.5;
   double Kd=.8;
 
+//Tilt Angle
+int tiltAngle;
+
 //Time
   unsigned long millisStart,panMillis,panServoMillis,targetAngleINCMillis;  
 
@@ -60,11 +63,11 @@
   const byte stringSize = 64;
   char receivedChars[stringSize];
   char tempChars[stringSize];
-  float gpsLat=0.0; 
-  float gpsLon=0.0;
-  float gpsEle=0.0;
-  float gpsEleOld=0.0;
-  float gpsVoltage=0.0;
+  long gpsLat=0; 
+  long gpsLon=0;
+  float gpsEle=0;
+  float gpsEleOld=0;
+  float gpsVoltage=0;
   boolean newData = false;
   
 //Instatiate Objects  
@@ -75,8 +78,8 @@ Servo zoomServo;
 //Signal Processing Variables
 const int WinSize = 10;
 int winIdx = 0;
-float winLat[WinSize];
-float winLon[WinSize];
+long winLat[WinSize];
+long winLon[WinSize];
 
 //Instantiate PID Object
 PID panPID(&doublePanAngle, &outputPanServo, &targetPanAngle, Kp, Ki, Kd, REVERSE,P_ON_M); 
@@ -87,10 +90,8 @@ void recvSerialData(Stream &ser) {
     char startMarker = '<';
     char endMarker = '>';
     char rc;
-
     while (ser.available() > 0 && newData == false) {
         rc = ser.read();
-
         if (recvInProgress == true) {
             if (rc != endMarker) {
                 receivedChars[ndx] = rc;
@@ -106,11 +107,27 @@ void recvSerialData(Stream &ser) {
                 newData = true;
             }
         }
-
         else if (rc == startMarker) {
             recvInProgress = true;
         }
     }
+}
+
+void parseGPSData() {      // split the data into its parts and feed signal processing buffer  
+    char * strtokIndx;  // this is used by strtok() as an index
+    strcpy(tempChars, receivedChars); //make a copy of the received string
+    
+    strtokIndx = strtok(tempChars,","); // get the first part - the string
+    gpsLat = atol(strtokIndx); // convert this part to a float
+  
+    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
+    gpsLon = atol(strtokIndx);     // convert this part to a float
+ 
+    strtokIndx = strtok(NULL, ",");
+    gpsEle = atol(strtokIndx);     // convert this part to a float
+
+    strtokIndx = strtok(NULL, ",");
+    gpsVoltage = atol(strtokIndx);     // convert this part to a float
 }
 
 void getPanAngle(){   
@@ -159,15 +176,11 @@ void getPanAngle(){
 }
 
 void updateTranLoc(){
-  dLatOld = dLat;
-  dLonOld = dLon;
-  dEleOld = dEle;
-  distanceOld = distance;
   dLat = gpsLat - lat0;
   dLon = gpsLon - lon0;
   dLon = lonCorrection*dLon;
   dEle= gpsEle-ele0;
-  distance = sqrt(dLat*dLat +dLon*dLon)*111009; //gives distance in meters
+  distance = round(sqrt((dLat)*(dLat)+ (dLon)*(dLon))*11); //gives distance in millimeters
 }
 
 //Calibrate camera system
@@ -179,7 +192,7 @@ void calibration(){
     lat0 = gpsLat;
     lon0 = gpsLon;
     ele0 = gpsEle;
-    lonCorrection = cos(degToRad*lat0); //correction for longitude values using loca, flat earth approx.
+    lonCorrection = cos(degToRad*lat0/10000000); //correction for longitude values using loca, flat earth approx.
    
     Serial.print(millis()-millisStart); Serial.print("\t");
     Serial.print("lat0: ");  Serial.print(lat0,9);  Serial.print("\t");
@@ -198,23 +211,6 @@ void calibration(){
    } 
 }
 
-void parseGPSData() {      // split the data into its parts and feed signal processing buffer  
-    char * strtokIndx;  // this is used by strtok() as an index
-    strcpy(tempChars, receivedChars); //make a copy of the received string
-    
-    strtokIndx = strtok(tempChars,","); // get the first part - the string
-    gpsLat = atof(strtokIndx); // convert this part to a float
-  
-    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
-    gpsLon = atof(strtokIndx);     // convert this part to a float
- 
-    strtokIndx = strtok(NULL, ",");
-    gpsEle = atof(strtokIndx);     // convert this part to a float
-
-    strtokIndx = strtok(NULL, ",");
-    gpsVoltage = atof(strtokIndx);     // convert this part to a float
-}
-
 void winLatAndLon(){
   winLat[winIdx]=gpsLat;
   winLon[winIdx]=gpsLon;
@@ -224,54 +220,29 @@ void winLatAndLon(){
   
 void updateTargetPanAngle(){ //updates target pan angle with a regression line connecting to the camera system through 10 gps readings 
   float regL=0;
-  float top=0;
-  float bot=0;
+  long  top=0;
+  long bot=0;
     
   for(int i=0; i<WinSize; i++){
     top += (winLat[i]-lat0)*(winLon[i]-lon0);
-    bot += winLat[i]*winLat[i];
+    bot += (winLat[i]-lat0)*(winLat[i]-lat0);
   }
-  regL = top/bot;
-  if(regL>0 && dLon<0) targetPanAngle = doublePanAngle + radToDeg*arcTan(regL) - 180;  
-  else if(regL<0 && dLon>0)  targetPanAngle = doublePanAngle + radToDeg*arcTan(regL) + 180; 
-  else targetPanAngle = doublePanAngle + radToDeg*arcTan(regL);
+  if(regL>0 && dLon<0) targetPanAngle = doublePanAngle + round(atan2 (top, bot) * radToDeg) - 180;  
+  else if(regL<0 && dLon>0)  targetPanAngle = doublePanAngle + round(atan2 (top, bot) * radToDeg) + 180; 
+  else targetPanAngle = doublePanAngle + round(atan2 (top, bot) * radToDeg);
+  Serial.print("  new targetPanAngle: "); Serial.print(targetPanAngle);
+}
+void updateTargetTiltAngle(){
+  tiltAngle=round(atan2((dEle), distance)*radToDeg);
+  if(tiltAngle<-45) tiltAngle=-45;
+  tiltAngle = map(tiltAngle, -90, 90, 12,120); 
   
-  Serial.print("regline slope: "); Serial.print(regL); Serial.print("  new targetPanAngle: "); Serial.print(targetPanAngle);
 }
 
 void maintenanceMode(){
   panServo.writeMicroseconds(1500);
   tiltServo.write(175);  
 }
-
-//Series Solution for the trig solutions below by Abhilash Patel. Available: http://www.instructables.com/id/Arduino-Trigonometric-Inverse-Functions/
-float arcSin(float c){
-  float out;
-  out= ((c+(c*c*c)/6+(3*c*c*c*c*c)/40+(5*c*c*c*c*c*c*c)/112+
-  (35*c*c*c*c*c*c*c*c*c)/1152 +(c*c*c*c*c*c*c*c*c*c*c*0.022)+
-  (c*c*c*c*c*c*c*c*c*c*c*c*c*.0173)+(c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*.0139)+
-  (c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*0.0115)+(c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*c*0.01)
-   ));
-                                           //asin
-  if(c>=.96 && c<.97){out=1.287+(3.82*(c-.96)); }
-  if(c>=.97 && c<.98){out=(1.325+4.5*(c-.97));}          // arcsin
-  if(c>=.98 && c<.99){out=(1.37+6*(c-.98));}
-  if(c>=.99 && c<=1){out=(1.43+14*(c-.99));}  
-  return out;// in radians
-}
-
-float arcCos(float c){
-  float out;
-  out=arcSin(sqrt(1-c*c));
-  return out; // in radians
-}
-
-float arcTan(float c){
-  float out;
-  out=arcSin(c/(sqrt(1+c*c)));
-  return out; // in radians
-}
-
 
 void setup() {
   //Pan Servo Setup

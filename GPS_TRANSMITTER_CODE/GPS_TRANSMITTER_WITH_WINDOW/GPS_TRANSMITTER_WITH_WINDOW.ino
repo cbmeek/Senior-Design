@@ -12,6 +12,13 @@ TinyGPSCustom EW(gps, "PUBX", 6); // $PUBX sentence, 6rd element
 TinyGPSCustom ele(gps, "PUBX", 7); // $PUBX sentence,  7th element
 
 #define VBATPIN A7
+#define AVG_WINDOW 15
+const float WEIGHT=0.05;
+
+float totalLat, totalLon, avgLat, avgLon;
+float latAr[AVG_WINDOW], lonAr[AVG_WINDOW];
+float elevation,oldElevation;
+int idx =0;
 
 void SERCOM1_Handler()
 {
@@ -27,20 +34,32 @@ void setup()
   // Assign pins 10 & 12 SERCOM functionality
   pinPeripheral(10, PIO_SERCOM);
   pinPeripheral(12, PIO_SERCOM);
-  
+
+  //Fill windows with zeros
+  for(int i=0; i<= AVG_WINDOW; i++){
+    latAr[i];
+    lonAr[i];
+  }
 }
 
-void loop() {
-  
-  
+void loop() {  
   if(lat.isUpdated() || lon.isUpdated() || ele.isUpdated()){
+    String tempEle = ele.value();
+    float temp2Ele = tempEle.toFloat();
+    float tempLat = nmea2DD(lat.value(),NS.value());
+    float tempLon = nmea2DD(lon.value(),EW.value());
+    Serial.print(tempLat,9); Serial.print(" "); Serial.println(tempLon,9);
+    movingAvg(tempLat,tempLon);
+    elevation = temp2Ele*WEIGHT + oldElevation*(1-WEIGHT);
+    
     Serial1.print("<"); //Start char for parsing
-    Serial1.print(nmea2DD(lat.value(),NS.value()),9); Serial1.print(","); 
-    Serial1.print(nmea2DD(lon.value(),EW.value()),9); Serial1.print(",");
-    Serial1.print(ele.value()); Serial1.print(",");
+    Serial1.print(avgLat,9); Serial1.print(","); 
+    Serial1.print(avgLon,9); Serial1.print(",");
+    Serial1.print(elevation,3); Serial1.print(",");
     Serial1.print(batteryVoltage());
     Serial1.println(">"); //End char for parsing
   }
+  oldElevation = elevation;
   
   while(Serial2.available()>0) gps.encode(Serial2.read());
 }
@@ -72,16 +91,17 @@ float nmea2DD(String nmea,String dir){
 }
 void movingAvg(float latitude, float longitude){
   totalLat = totalLat - latAr[idx]; 
-  totalLon = totalLat - longAr[idx];
+  totalLon = totalLon - lonAr[idx];
   latAr[idx] = latitude;
-  longAr[idx] = longitude;
+  lonAr[idx] = longitude;
   totalLat = totalLat + latAr[idx]; 
-  totalLon = totalLat + longAr[idx];
+  totalLon = totalLon + lonAr[idx];
   idx++;
-  if(idx>=avgWindow){
+  if(idx>=AVG_WINDOW){
     idx = 0;  
   }
-  avgLat = totalLat/avgWindow;
-  avgLon = totalLon/avgWindow;
+  
+  avgLat = totalLat/AVG_WINDOW;
+  avgLon = totalLon/AVG_WINDOW;
 }
 

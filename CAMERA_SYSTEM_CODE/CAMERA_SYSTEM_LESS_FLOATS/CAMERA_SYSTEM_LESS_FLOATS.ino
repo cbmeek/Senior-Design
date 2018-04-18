@@ -44,18 +44,18 @@
   unsigned int dutyCycle = 0, theta = 0;
   
 //Pan Control data
-  const double outputMax = 1570;
-  const double outputMin = 1410;
-  const int timeStep=75;
-  const int adaptSw =20;   
+  const double outputMax = 1600;
+  const double outputMin = 1390;
+  const int timeStep=100;
+  const int adaptSw =15;   
   double targetPanAngle=105;
   double outputPanServo=1500;
-  double KpFar=5;
-  double KiFar=0;
-  double KdFar=1.1;
-  double KpClose=15;
-  double KiClose=0;
-  double KdClose=2.2; 
+  double KpFar=4;
+  double KiFar=0.5;
+  double KdFar=1;
+  double KpClose=2*2.2;
+  double KiClose=.20;
+  double KdClose=.5*2; 
 
 //Tilt Angle
 int tiltAngle;
@@ -336,15 +336,33 @@ void loop() {
     Serial.print("panAngle: "); Serial.print(panAngle);  Serial.print(" ");
     Serial.print("panServoOutput: "); Serial.println(outputPanServo);
   
-   //PID TESTING
-  /* if((millis()-targetAngleINCMillis) >= 1000){
-     targetPanAngle += 10;
-     targetAngleINCMillis = millis();
-     }
-  */
+
   }//else if
   else{
-    panServo.writeMicroseconds(1500);
+   getPanAngle(); 
+    //PID TESTING
+   if((millis()-targetAngleINCMillis) >= 2000){
+     targetPanAngle += random(-20,20);
+     targetAngleINCMillis = millis();
+     }
+
+   if(abs(targetPanAngle-panAngle)>adaptSw) panPID.SetTunings(KpFar, KiFar, KdFar);
+   else panPID.SetTunings(KpClose, KiClose, KdClose);
+   
+   panPID.Compute();
+   if(outputPanServo>1465&&outputPanServo<1495) outputPanServo = 1448;
+   if(outputPanServo>1505&&outputPanServo<1550) outputPanServo = 1550;
+   if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) outputPanServo=1500;
+    
+     
+   panServo.writeMicroseconds((int)outputPanServo);
+
+   //Display
+   Serial.print(millis()-millisStart);  Serial.print(" ");
+   Serial.print("targetPanAngle: "); Serial.print(targetPanAngle);  Serial.print(" ");
+   Serial.print("panAngle: "); Serial.print(panAngle);  Serial.print(" ");
+   Serial.print("panServoOutput: "); Serial.println(outputPanServo);
+   
   }
 }//loop
 

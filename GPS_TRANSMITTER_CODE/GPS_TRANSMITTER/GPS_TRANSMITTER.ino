@@ -12,8 +12,10 @@ TinyGPSCustom EW(gps, "PUBX", 6); // $PUBX sentence, 6rd element
 TinyGPSCustom ele(gps, "PUBX", 7); // $PUBX sentence,  7th element
 
 #define VBATPIN A7
-
+const float WEIGHT=0.05;
+long elevation,oldElevation;
 void SERCOM1_Handler()
+
 {
   Serial2.IrqHandler();
 }
@@ -34,6 +36,9 @@ void loop() {
   
   
   if(lat.isUpdated() || lon.isUpdated() || ele.isUpdated()){
+    String tempEle = ele.value();
+    float temp2Ele = tempEle.toFloat();
+     
     Serial1.print("<"); //Start char for parsing
     Serial1.print(nmea2DD(lat.value(),NS.value()),9); Serial1.print(","); 
     Serial1.print(nmea2DD(lon.value(),EW.value()),9); Serial1.print(",");

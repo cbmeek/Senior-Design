@@ -12,6 +12,9 @@ TinyGPSCustom EW(gps, "PUBX", 6); // $PUBX sentence, 6rd element
 TinyGPSCustom ele(gps, "PUBX", 7); // $PUBX sentence,  7th element
 
 #define VBATPIN A7
+const int WEIGHT_MAX=100;
+const int WEIGHT=5;
+long elevation,oldElevation;
 
 void SERCOM1_Handler()
 {
@@ -31,17 +34,18 @@ void setup()
 }
 
 void loop() {
-  
-  
+  String tempEle = ele.value();
+  long temp2Ele = round(tempEle.toFloat()*1000); //elevation in millimeters
+  elevation = ((WEIGHT_MAX-WEIGHT)*oldElevation+(WEIGHT)*temp2Ele)/WEIGHT_MAX;
+  oldElevation = elevation;
   if(lat.isUpdated() || lon.isUpdated() || ele.isUpdated()){
     Serial1.print("<"); //Start char for parsing
     Serial1.print(nmea2DD(lat.value(),NS.value())*10000000,0); Serial1.print(","); 
     Serial1.print(nmea2DD(lon.value(),EW.value())*10000000,0); Serial1.print(",");
-    Serial1.print(ele.value()); Serial1.print(",");
+    Serial1.print(elevation); Serial1.print(",");
     Serial1.print(batteryVoltage());
     Serial1.println(">"); //End char for parsing
-  }
-  
+  } 
   while(Serial2.available()>0) gps.encode(Serial2.read());
 }
 float batteryVoltage(){
@@ -70,18 +74,3 @@ float nmea2DD(String nmea,String dir){
     return dd;
   }
 }
-void movingAvg(float latitude, float longitude){
-  totalLat = totalLat - latAr[idx]; 
-  totalLon = totalLat - longAr[idx];
-  latAr[idx] = latitude;
-  longAr[idx] = longitude;
-  totalLat = totalLat + latAr[idx]; 
-  totalLon = totalLat + longAr[idx];
-  idx++;
-  if(idx>=avgWindow){
-    idx = 0;  
-  }
-  avgLat = totalLat/avgWindow;
-  avgLon = totalLon/avgWindow;
-}
-

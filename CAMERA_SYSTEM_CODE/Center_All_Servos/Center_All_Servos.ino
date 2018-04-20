@@ -15,8 +15,8 @@ void setup() {
 }
 
 void loop() {
-  pan_servo.writeMicroseconds(1500+panOffset);
-  tilt_servo.write(90+tiltOffset);  
+  pan_servo.writeMicroseconds(1500);
+  tilt_servo.write(180);  
   zoom_servo.write(90+zoomOffset);
 
 }

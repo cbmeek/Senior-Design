@@ -50,12 +50,12 @@
   const int adaptSw =15;   
   double targetPanAngle=105;
   double outputPanServo=1500;
-  double KpFar=4;
-  double KiFar=0.5;
-  double KdFar=1;
-  double KpClose=2*2.2;
-  double KiClose=.20;
-  double KdClose=.5*2; 
+  double KpFar=2; //2
+  double KiFar=0.7;
+  double KdFar=.8; //.8
+  double KpClose=0;
+  double KiClose=0;
+  double KdClose=0; 
 
 //Tilt Angle
 int tiltAngle;
@@ -315,18 +315,13 @@ void loop() {
     getPanAngle();
 
     //Update Target Angles
-    if( /*(panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1) &&*/ (millis()-updatePanMillis>1000)) {
+    if(millis()-updatePanMillis > 1000) {
       updateTargetPanAngle();
       updatePanMillis = millis();
     }
-  
-    //Pan Angle PID
-    if(abs(targetPanAngle-panAngle)>adaptSw) panPID.SetTunings(KpFar, KiFar, KdFar);
-    else panPID.SetTunings(KpClose, KiClose, KdClose);
-      
+    
     panPID.Compute();
-    if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) outputPanServo=1500;
-
+ 
     //Servo Control
     panServo.writeMicroseconds((int)outputPanServo);
     
@@ -339,21 +334,15 @@ void loop() {
 
   }//else if
   else{
+  //PID Testing
    getPanAngle(); 
     //PID TESTING
-   if((millis()-targetAngleINCMillis) >= 2000){
-     targetPanAngle += random(-20,20);
+   if((millis()-targetAngleINCMillis) >= 80){
+     targetPanAngle += random(-5,5);
      targetAngleINCMillis = millis();
      }
+    panPID.Compute();
 
-   if(abs(targetPanAngle-panAngle)>adaptSw) panPID.SetTunings(KpFar, KiFar, KdFar);
-   else panPID.SetTunings(KpClose, KiClose, KdClose);
-   
-   panPID.Compute();
-   if(outputPanServo>1465&&outputPanServo<1495) outputPanServo = 1448;
-   if(outputPanServo>1505&&outputPanServo<1550) outputPanServo = 1550;
-   if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) outputPanServo=1500;
-    
      
    panServo.writeMicroseconds((int)outputPanServo);
 

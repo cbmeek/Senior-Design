@@ -84,7 +84,8 @@ while True:
     else :
         # Tracking failure
          cv2.putText(frame, "Tracking failure detected. Looking for new target.", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-         if time-lastTime>5:
+        #if 5 seconds have passed since the last attempt to find a new target then try again
+         if (time-lastTime)>5:
              #Convert frame into a usable data type for AWS Rekognition
              result,encimg=cv2.imencode('.jpg',frame,[int(cv2.IMWRITE_JPEG_QUALITY),100])
              if False==result:
@@ -100,9 +101,8 @@ while True:
                      bbox = rectVert1+rectVert2
                      ok = tracker.init(frame, bbox)
                  except:
-                     print("No face detected using default roi")
-                     bbox = (frameWidth, frameHeight,frameWidth , frameHeight)
-             lastTime= monotonic()
+                     print("No face detected")
+             lastTime = monotonic()
              
     # Display FPS on frame
     cv2.putText(frame, "FPS : " + str(int(fps)), (100,50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2);

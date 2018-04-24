@@ -80,16 +80,21 @@ while True:
         # Tracking success
         p1 = (int(bbox[0]), int(bbox[1]))
         p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+        centerX = int((bbox[0] + bbox[2]/2))
+        centerY = int((bbox[1] + bbox[3]/2))
         cv2.rectangle(frame, p1, p2, (0,255,0), 3)
+        print("<"+ str(centerX) + "," + str(centerY)+ ">")
+        cv2.circle(frame,(centerX,centerY), 3, (0,0,255), 0)
     else :
         # Tracking failure
-         cv2.putText(frame, "Tracking failure detected. Looking for new target.", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+         cv2.putText(frame, "Tracking failure detected. Looking for new target.",
+                     (25,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
         #if 5 seconds have passed since the last attempt to find a new target then try again
          if (time-lastTime)>5:
              #Convert frame into a usable data type for AWS Rekognition
              result,encimg=cv2.imencode('.jpg',frame,[int(cv2.IMWRITE_JPEG_QUALITY),100])
              if False==result:
-                 print("could not encode image!")
+                 print(39"could not encode image!")
                  quit()
              imgbytes = encimg.tostring()
              response = client.detect_faces(Image={'Bytes': imgbytes}, Attributes=['DEFAULT'])
@@ -97,11 +102,11 @@ while True:
                  #Getting bbox from AWS Rekoginiton
                  try:
                      rectVert1 = (int(frameWidth*faceDetail['BoundingBox']['Left']),int(frameHeight*faceDetail['BoundingBox']['Top']))
-                     rectVert2 = (int(frameWidth*faceDetail['BoundingBox']['Width']),int(frameHeight*faceDetail['BoundingBox']['Height']))
+                     rectVert2 = (int(frameWidth*faceDetail['BoundingBox']['Width']),int(frameHeightqq*faceDetail['BoundingBox']['Height']))
                      bbox = rectVert1+rectVert2
                      ok = tracker.init(frame, bbox)
                  except:
-                     print("No face detected")
+                     cv2.putText(frame,"No face detected",(25,130), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
              lastTime = monotonic()
              
     # Display FPS on frame

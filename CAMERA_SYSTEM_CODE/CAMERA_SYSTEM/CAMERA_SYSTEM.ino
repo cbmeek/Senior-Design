@@ -113,6 +113,23 @@ void recvSerialData(Stream &ser) {
     }
 }
 
+void parseGPSData() {      // split the data into its parts and feed signal processing buffer  
+    char * strtokIndx;  // this is used by strtok() as an index
+    strcpy(tempChars, receivedChars); //make a copy of the received string
+    
+    strtokIndx = strtok(tempChars,","); // get the first part - the string
+    gpsLat = atof(strtokIndx); // convert this part to a float
+  
+    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
+    gpsLon = atof(strtokIndx);     // convert this part to a float
+ 
+    strtokIndx = strtok(NULL, ",");
+    gpsEle = atof(strtokIndx);     // convert this part to a float
+
+    strtokIndx = strtok(NULL, ",");
+    gpsVoltage = atof(strtokIndx);     // convert this part to a float
+}
+
 void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
   durationHigh = pulseIn(panFeedBackPin, HIGH); //Measures the time the feedback signal is high
@@ -198,22 +215,7 @@ void calibration(){
    } 
 }
 
-void parseGPSData() {      // split the data into its parts and feed signal processing buffer  
-    char * strtokIndx;  // this is used by strtok() as an index
-    strcpy(tempChars, receivedChars); //make a copy of the received string
-    
-    strtokIndx = strtok(tempChars,","); // get the first part - the string
-    gpsLat = atof(strtokIndx); // convert this part to a float
-  
-    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
-    gpsLon = atof(strtokIndx);     // convert this part to a float
- 
-    strtokIndx = strtok(NULL, ",");
-    gpsEle = atof(strtokIndx);     // convert this part to a float
 
-    strtokIndx = strtok(NULL, ",");
-    gpsVoltage = atof(strtokIndx);     // convert this part to a float
-}
 
 void winLatAndLon(){
   winLat[winIdx]=gpsLat;

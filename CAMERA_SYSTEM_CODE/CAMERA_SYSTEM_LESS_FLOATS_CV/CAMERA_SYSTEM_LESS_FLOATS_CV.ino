@@ -147,6 +147,12 @@ void parseCVData() { //split the data up from the Rasperry pi3
     strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
     yPosition = atol(strtokIndx);     // convert this part to a float
 }
+
+void updateTargetPanAngleCV(){
+  //Camera Specific Calculation MUST change for other cameras
+  targetPanAngle = doublePanAngle + int(atan2(1.091*(xPosition/720 - 0.5),1.0)); 
+}
+
 void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
   durationHigh = pulseIn(panFeedBackPin, HIGH); //Measures the time the feedback signal is high
@@ -221,7 +227,7 @@ void calibration(){
    else if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == LOW){
     updateTranLoc();
     getPanAngle();
-    targetPanAngle = panAngle;
+    targetPanAngle = doublePanAngle;
     Serial.print(millis()-millisStart); Serial.print("\t");
     Serial.print("dlat: ");  Serial.print(dLat);  Serial.print("\t");
     Serial.print("dlon: ");  Serial.print(dLon);  Serial.print("\t");
@@ -252,7 +258,6 @@ void updateTargetPanAngle(){ //updates target pan angle with a regression line c
   else if(regL<0 && dLon<0)  targetPanAngle = (tempAngle+180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
   else if(regL==0 && dLon<0) targetPanAngle = (tempAngle+180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
   else targetPanAngle = (tempAngle)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
-  Serial.print("  new tempAngle: "); Serial.println(tempAngle);
 }
 void updateTargetTiltAngle(){
   tiltAngle=int(atan2((dEle), distance)*radToDeg);
@@ -310,12 +315,19 @@ void setup() {
 }
 
 void loop() {
-  recvSerialData(Serial1); 
+  recvSerialData(Serial1); //Receieve Data from HC12 Receiver
   if(newData == true){
     parseGPSData();
     winLatAndLon(); //feed GPS data to regression buffer and Moving Average buffer
     newData = false;
-  }    
+  }
+  
+  recvSerialData(Serial); //Recieve Data from CV program
+  if(newData == true){
+    parseCVData();
+    newData = false;
+  } 
+     
   if(digitalRead(calPin4) == HIGH) {
 	  maintenanceMode();
   }
@@ -329,10 +341,11 @@ void loop() {
     getPanAngle();
 
     //Update Target Angles
-    if(millis()-updatePanMillis > 1000) {
+    if(millis()-updatePanMillis > 1500) {
       updateTargetPanAngle();
-      updatePanMillis = millis();
+      updatePanMillis = millis(); 
     }
+    else updateTargetPanAngleCV();
     
     panPID.Compute();
  

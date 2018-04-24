@@ -4,6 +4,8 @@ import boto3
 import json
 import sys
 from time import monotonic
+import serial
+ser = serial.Serial('/dev/ttyACM0',9600)
 
 #initilize timer so I dont spend a fortune on AWS
 time = 0
@@ -59,6 +61,7 @@ for faceDetail in response['FaceDetails']:
 ok = tracker.init(frame, bbox)
  
 while True:
+    print(ser.readline().decode().strip())
     time = monotonic()   
     # Read a new frame
     ok, frame = video.read()
@@ -83,7 +86,7 @@ while True:
         centerX = int((bbox[0] + bbox[2]/2))
         centerY = int((bbox[1] + bbox[3]/2))
         cv2.rectangle(frame, p1, p2, (0,255,0), 3)
-        print("<"+ str(centerX) + "," + str(centerY)+ ">")
+        ser.write("<"+ str(centerX) + "," + str(centerY)+ ">")
         cv2.circle(frame,(centerX,centerY), 3, (0,0,255), 0)
     else :
         # Tracking failure

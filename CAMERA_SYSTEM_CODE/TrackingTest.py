@@ -94,7 +94,7 @@ while True:
              #Convert frame into a usable data type for AWS Rekognition
              result,encimg=cv2.imencode('.jpg',frame,[int(cv2.IMWRITE_JPEG_QUALITY),100])
              if False==result:
-                 print(39"could not encode image!")
+                 print("could not encode image!")
                  quit()
              imgbytes = encimg.tostring()
              response = client.detect_faces(Image={'Bytes': imgbytes}, Attributes=['DEFAULT'])

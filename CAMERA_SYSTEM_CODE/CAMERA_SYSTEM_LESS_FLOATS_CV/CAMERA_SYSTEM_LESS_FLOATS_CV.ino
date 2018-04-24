@@ -247,14 +247,15 @@ void updateTargetPanAngle(){ //updates target pan angle with a regression line c
     bot += (winLat[i]-lat0)*(winLat[i]-lat0);
   }
   regL = top/bot;
-  tempAngle = round(atan2 (top, bot) * radToDeg);
-  if(regL>0 && dLon<0) targetPanAngle = (tempAngle-180)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle;   
-  else if(regL<0 && dLon>0)  targetPanAngle = (tempAngle+180)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle; 
-  else targetPanAngle = (tempAngle)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle;
+  tempAngle = int(atan2 (top, bot) * radToDeg);
+  if(regL>0 && dLon<0) targetPanAngle = (tempAngle-180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;   
+  else if(regL<0 && dLon<0)  targetPanAngle = (tempAngle+180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
+  else if(regL==0 && dLon<0) targetPanAngle = (tempAngle+180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
+  else targetPanAngle = (tempAngle)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
   Serial.print("  new tempAngle: "); Serial.println(tempAngle);
 }
 void updateTargetTiltAngle(){
-  tiltAngle=round(atan2((dEle), distance)*radToDeg);
+  tiltAngle=int(atan2((dEle), distance)*radToDeg);
   if(tiltAngle<-45) tiltAngle=-45;
   tiltAngle = map(tiltAngle, -90, 90, 12,120); 
   

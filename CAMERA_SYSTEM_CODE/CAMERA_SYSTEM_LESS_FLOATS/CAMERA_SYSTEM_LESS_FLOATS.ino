@@ -244,13 +244,14 @@ void updateTargetPanAngle(){ //updates target pan angle with a regression line c
   long tempAngle;  
   for(int i=0; i<WinSize; i++){
     top += (winLat[i]-lat0)*(winLon[i]-lon0);
-    bot += (winLat[i]-lat0)*(winLat[i]-lat0);
+    bot += (winLon[i]-lon0)*(winLon[i]-lon0);
   }
   regL = top/bot;
-  tempAngle = round(atan2 (top, bot) * radToDeg);
-  if(regL>0 && dLon<0) targetPanAngle = (tempAngle-180)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle;   
-  else if(regL<0 && dLon>0)  targetPanAngle = (tempAngle+180)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle; 
-  else targetPanAngle = (tempAngle)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle;
+  tempAngle = int(atan (regL) * radToDeg);
+  if(regL>0 && dLon<0) targetPanAngle = (tempAngle-180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;   
+  else if(regL<0 && dLon<0)  targetPanAngle = (tempAngle+180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
+  else if(regL==0 && dLon<0) targetPanAngle = (tempAngle+180)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle; 
+  else targetPanAngle = (tempAngle)-(doublePanAngle-int(doublePanAngle/360)*360)+doublePanAngle;
   Serial.print("  new tempAngle: "); Serial.println(tempAngle);
 }
 void updateTargetTiltAngle(){

@@ -150,7 +150,7 @@ void parseCVData() { //split the data up from the Rasperry pi3
 
 void updateTargetPanAngleCV(){
   //Camera Specific Calculation MUST change for other cameras
-  targetPanAngle = doublePanAngle + int(atan2(1.091*(xPosition/720 - 0.5),1.0)); 
+  targetPanAngle = doublePanAngle + int( atan2(1.091*(xPosition/720 - 0.5),1.0) * radToDeg ); 
 }
 
 void getPanAngle(){   
@@ -250,7 +250,7 @@ void updateTargetPanAngle(){ //updates target pan angle with a regression line c
   long tempAngle;  
   for(int i=0; i<WinSize; i++){
     top += (winLat[i]-lat0)*(winLon[i]-lon0);
-    bot += (winLat[i]-lat0)*(winLat[i]-lat0);
+    bot += (winLon[i]-lat0)*(winLon[i]-lat0);
   }
   regL = top/bot;
   tempAngle = int(atan2 (top, bot) * radToDeg);

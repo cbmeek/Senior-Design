@@ -58,16 +58,18 @@ for faceDetail in response['FaceDetails']:
         rectVert2 = (int(frameWidth*faceDetail['BoundingBox']['Width']),int(frameHeight*faceDetail['BoundingBox']['Height']))
         # Define an initial bounding box
         bbox = rectVert1+rectVert2
+        # Initialize tracker with first frame and bounding box
+        ok = tracker.init(frame, bbox)
         print(bbox)
     except:
-        print("No face detected using default roi") 
-bbox = (287, 23, 86, 320)
+        print("No face detected") 
 
-# Initialize tracker with first frame and bounding box
-ok = tracker.init(frame, bbox)
+
+
+
  
 while True:
-    print(ser.readline().decode(encoding='UTF-8',errors='ignore').strip())
+    #print(ser.readline().decode(encoding='UTF-8',errors='ignore').strip())
     time = monotonic()   
     # Read a new frame
     ok, frame = video.read()
@@ -92,8 +94,12 @@ while True:
         centerX = int((bbox[0] + bbox[2]/2))
         centerY = int((bbox[1] + bbox[3]/2))
         cv2.rectangle(frame, p1, p2, (0,255,0), 3)
-        ser.write(("<"+ str(centerX) + "," + str(centerY)+ ">").encode())
-        cv2.circle(frame,(centerX,centerY), 3, (0,0,255), 0)
+        try:
+            print(("<"+ str(centerX) + "," + str(centerY)+ ">"))
+            ser.write(("<"+ str(centerX) + "," + str(centerY)+ ">").encode())
+            cv2.circle(frame,(centerX,centerY), 3, (0,0,255), 0)
+        except:
+            pass
     else :
         # Tracking failure
          cv2.putText(frame, "Tracking failure detected. Looking for new target.",

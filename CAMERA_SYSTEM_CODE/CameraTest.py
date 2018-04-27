@@ -7,9 +7,9 @@ import json
 s3 = boto3.resource('s3')
 client=boto3.client('rekognition','us-west-2')
 cap = cv2.VideoCapture(0)
-t=True
 
-while(t):
+
+while(True):
 
     # Capture frame-by-frame
     ret, frame = cap.read()
@@ -42,11 +42,14 @@ while(t):
     print("rectVert2: " +str(rectVert2))
                  
     newframe = cv2.rectangle(frame,rectVert1,rectVert2,(0,255,0),3)
-    cv2.imshow('I See You', newframe)
+    newframe = cv2.rectangle(frame,(0,0),(1,1),(0,255,0),3)
     t=False
-    
+    # Display the resulting frame
+    cv2.imshow('I See You', newframe)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break   
     
 # When everything done, release the capture
 cap.release()
-#cv2.destroyAllWindows()
+cv2.destroyAllWindows()
 

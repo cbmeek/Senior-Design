@@ -50,12 +50,12 @@
   const int adaptSw =15;   
   double targetPanAngle=105;
   double outputPanServo=1500;
-  double KpFar=4;
-  double KiFar=0.5;
-  double KdFar=1;
-  double KpClose=2*2.2;
-  double KiClose=.20;
-  double KdClose=.5*2; 
+  double KpFar=2; //2
+  double KiFar=0.7;
+  double KdFar=.8; //.8
+  double KpClose=0;
+  double KiClose=0;
+  double KdClose=0; 
 
 //Tilt Angle
 int tiltAngle;
@@ -73,6 +73,9 @@ int tiltAngle;
   float gpsEleOld=0;
   float gpsVoltage=0;
   boolean newData = false;
+
+  long yPosition = 240;
+  long xPosition = 360;
   
 //Instatiate Objects  
 Servo panServo;
@@ -134,6 +137,16 @@ void parseGPSData() {      // split the data into its parts and feed signal proc
     gpsVoltage = atof(strtokIndx);     // convert this part to a float
 }
 
+void parseCVData() { //split the data up from the Rasperry pi3
+    char * strtokIndx;  // this is used by strtok() as an index
+    strcpy(tempChars, receivedChars); //make a copy of the received string
+    
+    strtokIndx = strtok(tempChars,","); // get the first part - the string
+    xPosition = atol(strtokIndx); // convert this part to a float
+  
+    strtokIndx = strtok(NULL, ","); // this continues where the previous call left off
+    yPosition = atol(strtokIndx);     // convert this part to a float
+}
 void getPanAngle(){   
   durationLow = pulseIn(panFeedBackPin, LOW); //Measures the time the feedback signal is low
   durationHigh = pulseIn(panFeedBackPin, HIGH); //Measures the time the feedback signal is high
@@ -182,7 +195,7 @@ void getPanAngle(){
 void updateTranLoc(){
   dLat = gpsLat - lat0;
   dLon = gpsLon - lon0;
-  dLon = lonCorrection*dLon;
+  dLon = dLon*lonCorrection;
   dEle= gpsEle-ele0;
   distance = round(sqrt((dLat)*(dLat)+ (dLon)*(dLon))*11); //gives distance in millimeters
 }
@@ -207,8 +220,7 @@ void calibration(){
    //When aligning camera lens ensure GPS transmistter is centered about Y axis
    else if(digitalRead(calPin1)== HIGH && digitalRead(calPin2) == LOW){
     updateTranLoc();
-    getPanAngle();
-    targetPanAngle = panAngle;
+    
     Serial.print(millis()-millisStart); Serial.print("\t");
     Serial.print("dlat: ");  Serial.print(dLat);  Serial.print("\t");
     Serial.print("dlon: ");  Serial.print(dLon);  Serial.print("\t");
@@ -230,14 +242,18 @@ void updateTargetPanAngle(){ //updates target pan angle with a regression line c
   long bot=0;
   long tempAngle;  
   for(int i=0; i<WinSize; i++){
-    top += (winLat[i]-lat0)*(winLon[i]-lon0);
-    bot += (winLat[i]-lat0)*(winLat[i]-lat0);
+    top += (winLat[i]-lat0)*(winLon[i]-lon0)*lonCorrection;
+    bot += (winLon[i]-lon0)*(winLon[i]-lon0)*lonCorrection*lonCorrection;
   }
   regL = top/bot;
-  tempAngle = round(atan2 (top, bot) * radToDeg);
-  if(regL>0 && dLon<0) targetPanAngle = (tempAngle-180)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle;   
-  else if(regL<0 && dLon>0)  targetPanAngle = (tempAngle+180)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle; 
-  else targetPanAngle = (tempAngle)-(doublePanAngle-round(doublePanAngle/360)*360)+doublePanAngle;
+  tempAngle = int(atan (regL) * radToDeg);
+  if(regL>0 && dLon<0) tempAngle = (tempAngle-180);   
+  else if(regL<0 && dLon<0)  tempAngle = (tempAngle+180);
+  else if(regL==0 && dLon<0) tempAngle = (tempAngle+180); 
+   
+  if(tempAngle>0 && doublePanAngle<0) tempAngle *= -1;
+   
+  targetPanAngle =  tempAngle -(doublePanAngle-int(doublePanAngle/360)*360) + doublePanAngle;
   Serial.print("  new tempAngle: "); Serial.println(tempAngle);
 }
 void updateTargetTiltAngle(){
@@ -315,18 +331,13 @@ void loop() {
     getPanAngle();
 
     //Update Target Angles
-    if( /*(panAngle <= targetPanAngle+1) && (panAngle >= targetPanAngle-1) &&*/ (millis()-updatePanMillis>1000)) {
+    if(millis()-updatePanMillis > 1000) {
       updateTargetPanAngle();
       updatePanMillis = millis();
     }
-  
-    //Pan Angle PID
-    if(abs(targetPanAngle-panAngle)>adaptSw) panPID.SetTunings(KpFar, KiFar, KdFar);
-    else panPID.SetTunings(KpClose, KiClose, KdClose);
-      
+    
     panPID.Compute();
-    if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) outputPanServo=1500;
-
+ 
     //Servo Control
     panServo.writeMicroseconds((int)outputPanServo);
     
@@ -339,21 +350,19 @@ void loop() {
 
   }//else if
   else{
+    panServo.writeMicroseconds(1500);
+    tiltServo.writeMicroseconds(1500+tiltOffset);
+  }
+  /*
+  //PID Testing
    getPanAngle(); 
     //PID TESTING
-   if((millis()-targetAngleINCMillis) >= 2000){
-     targetPanAngle += random(-20,20);
+   if((millis()-targetAngleINCMillis) >= 80){
+     targetPanAngle += random(-5,5);
      targetAngleINCMillis = millis();
      }
-
-   if(abs(targetPanAngle-panAngle)>adaptSw) panPID.SetTunings(KpFar, KiFar, KdFar);
-   else panPID.SetTunings(KpClose, KiClose, KdClose);
-   
-   panPID.Compute();
-   if(outputPanServo>1465&&outputPanServo<1495) outputPanServo = 1448;
-   if(outputPanServo>1505&&outputPanServo<1550) outputPanServo = 1550;
-   if(doublePanAngle>=(targetPanAngle-1) && doublePanAngle<=(targetPanAngle+1)) outputPanServo=1500;
-    
+    panPID.Compute();
+  /*
      
    panServo.writeMicroseconds((int)outputPanServo);
 
@@ -362,7 +371,6 @@ void loop() {
    Serial.print("targetPanAngle: "); Serial.print(targetPanAngle);  Serial.print(" ");
    Serial.print("panAngle: "); Serial.print(panAngle);  Serial.print(" ");
    Serial.print("panServoOutput: "); Serial.println(outputPanServo);
-   
-  }
+  */ 
 }//loop
 

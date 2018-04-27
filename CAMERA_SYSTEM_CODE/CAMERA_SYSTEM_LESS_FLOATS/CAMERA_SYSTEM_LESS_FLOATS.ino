@@ -195,7 +195,7 @@ void getPanAngle(){
 void updateTranLoc(){
   dLat = gpsLat - lat0;
   dLon = gpsLon - lon0;
-  dLon = lonCorrection*dLon;
+  dLon = dLon*lonCorrection;
   dEle= gpsEle-ele0;
   distance = round(sqrt((dLat)*(dLat)+ (dLon)*(dLon))*11); //gives distance in millimeters
 }
@@ -242,8 +242,8 @@ void updateTargetPanAngle(){ //updates target pan angle with a regression line c
   long bot=0;
   long tempAngle;  
   for(int i=0; i<WinSize; i++){
-    top += (winLat[i]-lat0)*(winLon[i]-lon0);
-    bot += (winLon[i]-lon0)*(winLon[i]-lon0);
+    top += (winLat[i]-lat0)*(winLon[i]-lon0)*lonCorrection;
+    bot += (winLon[i]-lon0)*(winLon[i]-lon0)*lonCorrection*lonCorrection;
   }
   regL = top/bot;
   tempAngle = int(atan (regL) * radToDeg);

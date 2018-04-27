@@ -4,6 +4,14 @@ import boto3
 import json
 import sys
 from time import monotonic
+import serial
+ser = serial.Serial()
+ser.port = "/dev/ttyACM0"
+ser.baudrate= 9600
+ser.timeout = 1
+ser.setDTR(False)
+ser.setRTS(False)
+ser.open()
 
 #initilize timer so I dont spend a fortune on AWS
 time = 0
@@ -52,10 +60,16 @@ for faceDetail in response['FaceDetails']:
         bbox = rectVert1+rectVert2
         # Initialize tracker with first frame and bounding box
         ok = tracker.init(frame, bbox)
+        print(bbox)
     except:
-        pass
+        print("No face detected") 
+
+
+
+
  
 while True:
+    #print(ser.readline().decode(encoding='UTF-8',errors='ignore').strip())
     time = monotonic()   
     # Read a new frame
     ok, frame = video.read()
@@ -80,14 +94,18 @@ while True:
         centerX = int((bbox[0] + bbox[2]/2))
         centerY = int((bbox[1] + bbox[3]/2))
         cv2.rectangle(frame, p1, p2, (0,255,0), 3)
-        print("<"+ str(centerX) + "," + str(centerY)+ ">")
-        cv2.circle(frame,(centerX,centerY), 3, (0,0,255), 0)
+        try:
+            print(("<"+ str(centerX) + "," + str(centerY)+ ">"))
+            ser.write(("<"+ str(centerX) + "," + str(centerY)+ ">").encode())
+            cv2.circle(frame,(centerX,centerY), 3, (0,0,255), 0)
+        except:
+            pass
     else :
         # Tracking failure
          cv2.putText(frame, "Tracking failure detected. Looking for new target.",
                      (25,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
         #if 5 seconds have passed since the last attempt to find a new target then try again
-         if (time-lastTime)>2:
+         if (time-lastTime)>5:
              #Convert frame into a usable data type for AWS Rekognition
              result,encimg=cv2.imencode('.jpg',frame,[int(cv2.IMWRITE_JPEG_QUALITY),100])
              if False==result:
